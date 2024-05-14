@@ -43,23 +43,23 @@ function _run(policy::AbstractPolicy,
     is_stop = false
     while !is_stop
         # NOTE: @timeit_debug statements are used for debug logging
-        @timeit_debug timer "reset!"                            reset!(env)
-        @timeit_debug timer "push!(policy) PreEpisodeStage"     push!(policy, PreEpisodeStage(), env)
-        @timeit_debug timer "optimise! PreEpisodeStage"         optimise!(policy, PreEpisodeStage())
-        @timeit_debug timer "push!(hook) PreEpisodeStage"       push!(hook, PreEpisodeStage(), policy, env)
+        reset!(env)
+        push!(policy, PreEpisodeStage(), env)
+        optimise!(policy, PreEpisodeStage())
+        push!(hook, PreEpisodeStage(), policy, env)
 
 
         while !check!(reset_condition, policy, env) # one episode
-            @timeit_debug timer "push!(policy) PreActStage"     push!(policy, PreActStage(), env)
-            @timeit_debug timer "optimise! PreActStage"         optimise!(policy, PreActStage())
-            @timeit_debug timer "push!(hook) PreActStage"       push!(hook, PreActStage(), policy, env)
+            push!(policy, PreActStage(), env)
+            optimise!(policy, PreActStage())
+            push!(hook, PreActStage(), policy, env)
 
-            action = @timeit_debug timer "plan!"                RLBase.plan!(policy, env)
-            @timeit_debug timer "act!"                          act!(env, action)
+            action = RLBase.plan!(policy, env)
+            act!(env, action)
 
-            @timeit_debug timer "push!(policy) PostActStage"    push!(policy, PostActStage(), env, action)
-            @timeit_debug timer "optimise! PostActStage"        optimise!(policy, PostActStage())
-            @timeit_debug timer "push!(hook) PostActStage"      push!(hook, PostActStage(), policy, env)
+            push!(policy, PostActStage(), env, action)
+            optimise!(policy, PostActStage())
+            push!(hook, PostActStage(), policy, env)
 
             if check!(stop_condition, policy, env)
                 is_stop = true
@@ -67,9 +67,9 @@ function _run(policy::AbstractPolicy,
             end
         end # end of an episode
 
-        @timeit_debug timer "push!(policy) PostEpisodeStage"      push!(policy, PostEpisodeStage(), env)
-        @timeit_debug timer "optimise! PostEpisodeStage"          optimise!(policy, PostEpisodeStage())
-        @timeit_debug timer "push!(hook) PostEpisodeStage"        push!(hook, PostEpisodeStage(), policy, env)
+        push!(policy, PostEpisodeStage(), env)
+        optimise!(policy, PostEpisodeStage())
+        push!(hook, PostEpisodeStage(), policy, env)
 
     end
     push!(policy, PostExperimentStage(), env)
