@@ -25,7 +25,7 @@ Base.@kwdef mutable struct TDLearner{M,A} <: AbstractLearner where {A<:TabularAp
     n::Int = 0
 
     function TDLearner(approximator::A, method::Symbol; γ=1.0, α=0.01, n=0) where {A<:TabularApproximator}
-        if method ∉ [:SARS]
+        if method ∉ [:SARS, :SARSA]
             @error "Method $method is not supported"
         else
             new{method, A}(approximator, γ, α, n)
@@ -62,6 +62,23 @@ function bellman_update!(
     return Q(approx, state, action)
 end
 
+function bellman_update!(
+    approx::TabularApproximator,
+    state::I1,
+    next_state::I2,
+    action::I3,
+    next_action::I3,
+    reward::F1,
+    γ::Float64, # discount factor
+    α::Float64, # learning rate
+) where {I1<:Integer,I2<:Integer,I3<:Integer,F1<:AbstractFloat}
+    next_value = Q(approx, next_state, next_action)
+    current_value = Q(approx, state, action)
+    raw_q_value = (reward + γ * next_value - current_value) # Discount factor γ is applied here
+    approx.model[action, state] += α * raw_q_value
+    return Q(approx, state, action)
+end
+
 function _optimise!(
     n::I1,
     γ::F, # discount factor
@@ -71,22 +88,41 @@ function _optimise!(
     next_state::I2,
     action::I3,
     reward::F,
-) where {I1<:Number,I2<:Number,I3<:Number,Ar<:AbstractArray,F<:AbstractFloat}
+) where {I1<:Integer,I2<:Integer,I3<:Integer,Ar<:AbstractArray,F<:AbstractFloat}
     bellman_update!(approx, state, next_state, action, reward, γ, α)
 end
 
+function _optimise!(
+    n::I1,
+    γ::F, # discount factor
+    α::F, # learning rate
+    approx::TabularApproximator{Ar},
+    state::I2,
+    next_state::I2,
+    action::I3,
+    next_action::I3,
+    reward::F,
+) where {I1<:Integer,I2<:Integer,I3<:Integer,Ar<:AbstractArray,F<:AbstractFloat}
+    bellman_update!(approx, state, next_state, action, next_action, reward, γ, α)
+end
+
 function RLBase.optimise!(
-    L::TDLearner,
+    L::TDLearner{:SARS},
     t::@NamedTuple{state::I1, next_state::I1, action::I2, reward::F2, terminal::Bool},
 ) where {I1<:Number,I2<:Number,F2<:AbstractFloat}
     _optimise!(L.n, L.γ, L.α, L.approximator, t.state, t.next_state, t.action, t.reward)
 end
 
-function RLBase.optimise!(learner::TDLearner, stage::AbstractStage, trajectory::Trajectory)
-    for batch in trajectory.container
-        optimise!(learner, stage, batch)
-    end
+function RLBase.optimise!(
+    L::TDLearner{:SARSA},
+    t::@NamedTuple{state::I1, next_state::I1, action::I2, next_action::I2, reward::F2, terminal::Bool},
+) where {I1<:Number,I2<:Number,F2<:AbstractFloat}
+    _optimise!(L.n, L.γ, L.α, L.approximator, t.state, t.next_state, t.action, t.next_action, t.reward)
 end
 
-# TDLearner{:SARS} is optimized at the PostActStage
-RLBase.optimise!(learner::TDLearner{:SARS}, stage::PostActStage, trace::NamedTuple) = RLBase.optimise!(learner, trace)
+function RLBase.optimise!(learner::TDLearner, stage::PostActStage, trajectory::Trajectory)
+    idx = findlast(trajectory.container.sampleable_inds)
+    if !isnothing(idx)
+        optimise!(learner, trajectory.container[idx])
+    end
+end
