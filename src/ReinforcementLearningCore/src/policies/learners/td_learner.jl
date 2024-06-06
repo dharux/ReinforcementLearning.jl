@@ -6,6 +6,7 @@ import Base.push!
 
 using ReinforcementLearningCore: AbstractLearner, TabularApproximator
 using Flux
+using Flux.Optimise: apply!
 
 """
     TDLearner(;approximator, method, γ=1.0, α=0.01, n=0)
@@ -45,14 +46,14 @@ Q(app::TabularApproximator, s::Int) = RLCore.forward(app, s)
 Update the Q-value of the given state-action pair.
 """
 function bellman_update!(
-    approx::TabularApproximator,
+    approx::TabularApproximator{Ar, nothing},
     state::I1,
     next_state::I2,
     action::I3,
     reward::F1,
     γ::Float64, # discount factor
     α::Float64, # learning rate
-) where {I1<:Integer,I2<:Integer,I3<:Integer,F1<:AbstractFloat}
+) where {Ar<:AbstractArray,I1<:Integer,I2<:Integer,I3<:Integer,F1<:AbstractFloat}
     # Q-learning formula following https://github.com/JuliaPOMDP/TabularTDLearning.jl/blob/25c4d3888e178c51ed1ff448f36b0fcaf7c1d8e8/src/q_learn.jl#LL63C26-L63C95
     # Terminology following https://en.wikipedia.org/wiki/Q-learning
     estimate_optimal_future_value = maximum(Q(approx, next_state))
@@ -63,7 +64,7 @@ function bellman_update!(
 end
 
 function bellman_update!(
-    approx::TabularApproximator,
+    approx::TabularApproximator{Ar, nothing},
     state::I1,
     next_state::I2,
     action::I3,
@@ -71,11 +72,48 @@ function bellman_update!(
     reward::F1,
     γ::Float64, # discount factor
     α::Float64, # learning rate
-) where {I1<:Integer,I2<:Integer,I3<:Integer,F1<:AbstractFloat}
+) where {Ar<:AbstractArray,I1<:Integer,I2<:Integer,I3<:Integer,F1<:AbstractFloat}
     next_value = Q(approx, next_state, next_action)
     current_value = Q(approx, state, action)
     raw_q_value = (reward + γ * next_value - current_value) # Discount factor γ is applied here
     approx.model[action, state] += α * raw_q_value
+    return Q(approx, state, action)
+end
+
+function bellman_update!(
+    approx::TabularApproximator{Ar, O},
+    state::I1,
+    next_state::I2,
+    action::I3,
+    reward::F1,
+    γ::Float64, # discount factor
+    α::Float64, # learning rate
+) where {Ar<:AbstractArray,O<:Flux.Optimise.AbstractOptimiser,I1<:Integer,I2<:Integer,I3<:Integer,F1<:AbstractFloat}
+    # Q-learning formula following https://github.com/JuliaPOMDP/TabularTDLearning.jl/blob/25c4d3888e178c51ed1ff448f36b0fcaf7c1d8e8/src/q_learn.jl#LL63C26-L63C95
+    # Terminology following https://en.wikipedia.org/wiki/Q-learning
+    estimate_optimal_future_value = maximum(Q(approx, next_state))
+    current_value = Q(approx, state, action)
+    Δ = [(reward + γ * estimate_optimal_future_value - current_value)] # Discount factor γ is applied here
+    apply!(approx.optimiser, (state,action), Δ)
+    approx.model[action, state] += Δ[1]
+    return Q(approx, state, action)
+end
+
+function bellman_update!(
+    approx::TabularApproximator{Ar, O},
+    state::I1,
+    next_state::I2,
+    action::I3,
+    next_action::I3,
+    reward::F1,
+    γ::Float64, # discount factor
+    α::Float64, # learning rate
+) where {Ar<:AbstractArray,O<:Flux.Optimise.AbstractOptimiser,I1<:Integer,I2<:Integer,I3<:Integer,F1<:AbstractFloat}
+    next_value = Q(approx, next_state, next_action)
+    current_value = Q(approx, state, action)
+    Δ = [(reward + γ * next_value - current_value)] # Discount factor γ is applied here
+    apply!(approx.optimiser, (state,action), Δ)
+    approx.model[action, state] += Δ[1]
     return Q(approx, state, action)
 end
 
@@ -120,7 +158,7 @@ function RLBase.optimise!(
     _optimise!(L.n, L.γ, L.α, L.approximator, t.state, t.next_state, t.action, t.next_action, t.reward)
 end
 
-function RLBase.optimise!(learner::TDLearner, stage::PostActStage, trajectory::Trajectory)
+function RLBase.optimise!(learner::TDLearner, ::PostActStage, trajectory::Trajectory)
     idx = findlast(trajectory.container.sampleable_inds)
     if !isnothing(idx)
         optimise!(learner, trajectory.container[idx])
