@@ -40,15 +40,16 @@ forward(L::TabularQApproximator, env::E) where {E <: AbstractEnv} = env |> state
 RLCore.forward(
     app::TabularVApproximator{R},
     s::I,
-) where {R<:AbstractVector,I} = @views app.model[s]
+) where {R<:AbstractVector,I<:Integer} = @views app.model[s]
 
 RLCore.forward(
     app::TabularQApproximator{R},
     s::I,
-) where {R<:AbstractArray,I} = @views app.model[:, s]
+) where {R<:AbstractArray,I<:Integer} = @views app.model[:, s]
 
 RLCore.forward(
     app::TabularQApproximator{R},
     s::I1,
     a::I2,
-) where {R<:AbstractArray,I1,I2} = @views app.model[a, s]
+) where {R<:AbstractArray,I1<:Integer,I2<:Integer} = @views app.model[a, s]
+

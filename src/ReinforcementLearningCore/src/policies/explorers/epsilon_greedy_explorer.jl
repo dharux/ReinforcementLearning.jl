@@ -115,7 +115,7 @@ end
 
 RLBase.plan!(s::EpsilonGreedyExplorer{<:Any,true}, x::A, mask::Trues) where {I<:Real, A<:AbstractArray{I}} = RLBase.plan!(s, x)
 
-function RLBase.plan!(s::EpsilonGreedyExplorer{<:Any,true}, values::A, mask::M) where {I<:Real, A<:AbstractArray{I}, M<:Union{BitVector, Vector{Bool}}}
+function RLBase.plan!(s::EpsilonGreedyExplorer{<:Any,true}, values::A, mask::M) where {I<:Real, A<:AbstractArray{I}, M<:AbstractVector{Bool}}
     ϵ = get_ϵ(s)
     s.step += 1
     rand(s.rng) >= ϵ ? rand(s.rng, find_all_max(values, mask)[2]) :
@@ -124,7 +124,7 @@ end
 
 RLBase.plan!(s::EpsilonGreedyExplorer{<:Any,false}, x::A, mask::Trues) where{I<:Real, A<:AbstractArray{I}} = RLBase.plan!(s, x)
 
-function RLBase.plan!(s::EpsilonGreedyExplorer{<:Any,false}, values::A, mask::M) where {I<:Real, A<:AbstractArray{I}, M<:Union{BitVector, Vector{Bool}}}
+function RLBase.plan!(s::EpsilonGreedyExplorer{<:Any,false}, values::A, mask::M) where {I<:Real, A<:AbstractArray{I}, M<:AbstractVector{Bool}}
     ϵ = get_ϵ(s)
     s.step += 1
     rand(s.rng) >= ϵ ? findmax_masked(values, mask)[2] : rand(s.rng, findall(mask))
@@ -148,7 +148,7 @@ function RLBase.prob(s::EpsilonGreedyExplorer{<:Any,true}, values::A) where {I<:
     Categorical(probs; check_args=false)
 end
 
-function RLBase.prob(s::EpsilonGreedyExplorer{<:Any,true}, values, action::Integer)
+function RLBase.prob(s::EpsilonGreedyExplorer{<:Any,true}, values::A, action::Integer) where {I<:Real, A<:AbstractArray{I}}
     ϵ, n = get_ϵ(s), length(values)
     max_val_inds = find_all_max(values)[2]
     if action in max_val_inds
@@ -158,14 +158,14 @@ function RLBase.prob(s::EpsilonGreedyExplorer{<:Any,true}, values, action::Integ
     end
 end
 
-function RLBase.prob(s::EpsilonGreedyExplorer{<:Any,false}, values)
+function RLBase.prob(s::EpsilonGreedyExplorer{<:Any,false}, values::A) where {I<:Real, A<:AbstractArray{I}}
     ϵ, n = get_ϵ(s), length(values)
     probs = fill(ϵ / n, n)
     probs[findmax(values)[2]] += 1 - ϵ
     Categorical(probs; check_args=false)
 end
 
-function RLBase.prob(s::EpsilonGreedyExplorer{<:Any,false}, values, action::Integer)
+function RLBase.prob(s::EpsilonGreedyExplorer{<:Any,false}, values::A, action::Integer) where {I<:Real, A<:AbstractArray{I}}
     ϵ, n = get_ϵ(s), length(values)
     if action == findmax(values)[2]
         ϵ / n + 1 - ϵ
@@ -174,7 +174,7 @@ function RLBase.prob(s::EpsilonGreedyExplorer{<:Any,false}, values, action::Inte
     end
 end
 
-function RLBase.prob(s::EpsilonGreedyExplorer{<:Any,true}, values, mask)
+function RLBase.prob(s::EpsilonGreedyExplorer{<:Any,true}, values::A, mask::M) where {I<:Real, A<:AbstractArray{I}, M<:AbstractVector{Bool}}
     ϵ, n = get_ϵ(s), length(values)
     probs = zeros(n)
     probs[mask] .= ϵ / sum(mask)
@@ -185,7 +185,7 @@ function RLBase.prob(s::EpsilonGreedyExplorer{<:Any,true}, values, mask)
     Categorical(probs; check_args=false)
 end
 
-function RLBase.prob(s::EpsilonGreedyExplorer{<:Any,false}, values, mask)
+function RLBase.prob(s::EpsilonGreedyExplorer{<:Any,false}, values::A, mask::M) where {I<:Real, A<:AbstractArray{I}, M<:AbstractVector{Bool}}
     ϵ, n = get_ϵ(s), length(values)
     probs = zeros(n)
     probs[mask] .= ϵ / sum(mask)
@@ -199,16 +199,16 @@ end
 # the GreedyExplorer is much faster.
 struct GreedyExplorer <: AbstractExplorer end
 
-RLBase.plan!(s::GreedyExplorer, x, mask::Trues) = s(x)
+RLBase.plan!(s::GreedyExplorer, x::A, mask::Trues) where {I<:Real, A<:AbstractArray{I}} = plan!(s, x)
 
-RLBase.plan!(s::GreedyExplorer, values) = findmax(values)[2]
-RLBase.plan!(s::GreedyExplorer, values, mask) = findmax_masked(values, mask)[2]
+RLBase.plan!(s::GreedyExplorer, values::A) where {I<:Real, A<:AbstractArray{I}} = findmax(values)[2]
+RLBase.plan!(s::GreedyExplorer, values::A, mask::M) where {I<:Real, A<:AbstractArray{I}, M<:AbstractVector{Bool}} = findmax_masked(values, mask)[2]
 
-RLBase.prob(s::GreedyExplorer, values) =
+RLBase.prob(s::GreedyExplorer, values::A) where {I<:Real, A<:AbstractArray{I}} =
     Categorical(onehot(findmax(values)[2], 1:length(values)); check_args=false)
 
-RLBase.prob(s::GreedyExplorer, values, action::Integer) =
+RLBase.prob(s::GreedyExplorer, values::A, action::Integer) where {I<:Real, A<:AbstractArray{I}} =
     findmax(values)[2] == action ? 1.0 : 0.0
 
-RLBase.prob(s::GreedyExplorer, values, mask) =
+RLBase.prob(s::GreedyExplorer, values::A, mask::M) where {I<:Real, A<:AbstractArray{I}, M<:AbstractVector{Bool}}  =
     Categorical(onehot(findmax_masked(values, mask)[2], length(values)); check_args=false)
