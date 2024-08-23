@@ -106,9 +106,9 @@ function find_all_max(x::A) where {A <: AbstractGPUArray}
     v, findall(==(v), x)
 end
 
-find_all_max(x, mask::Trues) = find_all_max(x)
+find_all_max(x::A, mask::Trues) where {A <: AbstractArray} = find_all_max(x)
 
-function find_all_max(x, mask::AbstractVector{Bool})
+function find_all_max(x::A, mask::M) where {A <: AbstractArray, M<:AbstractVector{Bool}}
     v = maximum(view(x, mask))
     v, [k for (m, k) in zip(mask, keys(x)) if m && x[k] == v]
 end
