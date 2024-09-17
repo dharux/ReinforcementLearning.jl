@@ -94,7 +94,7 @@ function bellman_update!(
     estimate_optimal_future_value = maximum(Q(approx, next_state))
     current_value = Q(approx, state, action)
     Δ = [(reward + γ * estimate_optimal_future_value - current_value)] # Discount factor γ is applied here
-    apply!(approx.optimiser, (state,action), Δ)
+    apply!(approx.optimiser, view(approx.model, action, state), Δ)
     approx.model[action, state] += Δ[1]
     return Q(approx, state, action)
 end
@@ -112,7 +112,7 @@ function bellman_update!(
     next_value = Q(approx, next_state, next_action)
     current_value = Q(approx, state, action)
     Δ = [(reward + γ * next_value - current_value)] # Discount factor γ is applied here
-    apply!(approx.optimiser, (state,action), Δ)
+    apply!(approx.optimiser, view(approx.model, action, state), Δ)
     approx.model[action, state] += Δ[1]
     return Q(approx, state, action)
 end
