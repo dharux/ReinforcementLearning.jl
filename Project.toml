@@ -6,7 +6,7 @@ version = "0.11.0"
 [deps]
 Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 ReinforcementLearningBase = "e575027e-6cd6-5018-9292-cdc6200d2b44"
-ReinforcementLearningCore = "de1b191a-4ae0-4afa-a27b-92d07f46b2d6"
+ReinforcementLearningCore = "54142d7f-d159-44a2-8dd0-9e677eb7bf1c"
 ReinforcementLearningEnvironments = "25e41dd2-4622-11e9-1641-f1adca772921"
 
 [compat]
